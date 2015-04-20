@@ -109,6 +109,9 @@ func sepByTimeout(r io.ReadCloser, timeout time.Duration) chan string {
 			case chunk, ok := <-chunks:
 				// End of input.
 				if !ok {
+					if len(buf) > 0 {
+						result <- string(buf)
+					}
 					close(result)
 					return
 				}
