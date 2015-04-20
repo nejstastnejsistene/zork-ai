@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -20,8 +18,7 @@ const timeout = 10 * time.Millisecond
 
 type Zork struct {
 	Cmd        *exec.Cmd   // The zork process.
-	Exit       chan error  // Channel with zork's exit status.
-	Error      chan error  // Channel for our errors.
+	Error      chan error  // Channel for errors or exit status.
 	ZorkInput  io.Writer   // Zork's stdin.
 	ZorkOutput chan string // Stream of output from
 	Stdin      chan string // Stream of input from stdin.
@@ -47,9 +44,8 @@ func RunZork(dfrotz, zork1Dat string) (err error) {
 		log.Fatal(err)
 	}
 	// Wait for process to exit.
-	z.Exit = make(chan error, 1)
 	go func() {
-		z.Exit <- z.Cmd.Wait()
+		z.Error <- z.Cmd.Wait()
 	}()
 	// Kill the process when finished if it isn't already dead
 	defer func() {
@@ -77,8 +73,6 @@ func RunZork(dfrotz, zork1Dat string) (err error) {
 			}
 			// Process the input/output pair.
 			go z.Handle(input, output)
-		case err := <-z.Exit:
-			return err
 		case err := <-z.Error:
 			return err
 		}
@@ -89,7 +83,7 @@ func RunZork(dfrotz, zork1Dat string) (err error) {
 // a timeout is reached. Needed for zork because there is never an EOF, and you
 // ordinarly only know the end of input by visually seeing that no more input
 // is coming.
-func sepByTimeout(r io.Reader, timeout time.Duration) chan string {
+func sepByTimeout(r io.ReadCloser, timeout time.Duration) chan string {
 	// Continuosly read chunks.
 	chunks := make(chan []byte)
 	go func() {
@@ -98,6 +92,7 @@ func sepByTimeout(r io.Reader, timeout time.Duration) chan string {
 			n, err := r.Read(chunk)
 			// End input on error or if nothing is read.
 			if n == 0 || err != nil {
+				r.Close()
 				close(chunks)
 				return
 			}
@@ -140,8 +135,6 @@ func (z *Zork) EvaluateCommand(command string) (output string, err error) {
 	select {
 	case output = <-z.ZorkOutput:
 		return
-	case err = <-z.Exit:
-		return
 	case err = <-z.Error:
 		return
 	}
@@ -162,12 +155,12 @@ func (z *Zork) Handle(input, output string) (err error) {
 	os.Stdout.Sync()
 
 	// Save to a random file, as demo of what can be done!
-	b := make([]byte, 8)
-	rand.Read(b)
-	name := hex.EncodeToString(b)
-	if err = z.Save(name+".sav", false); err != nil {
-		return
-	}
+	//b := make([]byte, 8)
+	//rand.Read(b)
+	//name := hex.EncodeToString(b)
+	//if err = z.Save(name+".sav", false); err != nil {
+	//	return
+	//}
 
 	/*lines := strings.Split(output, "\n")
 	// Determine if there is a header or not If there is not a header,
