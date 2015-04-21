@@ -27,7 +27,7 @@ type Zork struct {
 
 func RunZork(dfrotz, zork1Dat string) (err error) {
 	z := new(Zork)
-	z.Error = make(chan error, 2)
+	z.Error = make(chan error)
 	z.Cmd = exec.Command(dfrotz, zork1Dat)
 	// Pipes to process.
 	z.ZorkInput, err = z.Cmd.StdinPipe()
